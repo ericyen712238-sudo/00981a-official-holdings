@@ -1,0 +1,91 @@
+name: Update official 00988A holdings
+on:
+  schedule:
+    - cron: '17 9 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: official-00988a
+  cancel-in-progress: false
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install browser
+        run: |
+          pip install playwright==1.55.0
+          python -m playwright install --with-deps chromium
+      - name: Read official portfolio
+        run: |
+          python - <<'PY'
+          import json, re, math
+          from pathlib import Path
+          from datetime import datetime, timezone, timedelta
+          from playwright.sync_api import sync_playwright
+          SOURCE = 'https://www.ezmoney.com.tw/ETF/Fund/Info?fundCode=61YTW&tabName=basic#asset'
+          TZ = timezone(timedelta(hours=8))
+          with sync_playwright() as p:
+              browser = p.chromium.launch()
+              page = browser.new_page(locale='zh-TW')
+              page.goto(SOURCE, wait_until='domcontentloaded', timeout=90000)
+              page.get_by_role('link', name='基金投資組合', exact=True).click()
+              page.locator('#assetBody').get_by_text('股票代號', exact=True).wait_for(timeout=60000)
+              raw = page.locator('#assetBody').evaluate("""el => ({text:el.innerText,tables:[...el.querySelectorAll('table')].map(t=>[...t.rows].map(r=>[...r.cells].map(c=>c.innerText.trim())))})""")
+              browser.close()
+          m = re.search(r'資料日期 *[:：] *([0-9]{4})/([0-9]{1,2})/([0-9]{1,2})', raw['text'])
+          if not m:
+              raise ValueError('Official date missing; do not publish')
+          date = '%04d-%02d-%02d' % tuple(map(int, m.groups()))
+          if date > datetime.now(TZ).strftime('%Y-%m-%d'):
+              raise ValueError('Future source date')
+          stocks = []
+          for table in raw['tables']:
+              header = next((i for i,row in enumerate(table) if '股票代號' in row), None)
+              if header is None:
+                  continue
+              labels = table[header]
+              indices = [labels.index(x) for x in ['股票代號','股票名稱','股數','持股權重']]
+              for row in table[header+1:]:
+                  if not row or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9 ./-]{0,29}',row[indices[0]]):
+                      continue
+                  code,name,shares,weight = [row[i] for i in indices]
+                  shares = int(shares.replace(',',''))
+                  if not weight.endswith('%'):
+                      raise ValueError('Weight unit missing')
+                  weight = float(weight.rstrip('%'))/100
+                  if shares <= 0 or not name or not math.isfinite(weight) or not 0 <= weight <= 1:
+                      raise ValueError('Invalid holding')
+                  stocks.append(dict(code=code,name=name,shares=shares,weight=weight))
+          if not 20 <= len(stocks) <= 300 or len({s['code'] for s in stocks}) != len(stocks):
+              raise ValueError('Incomplete or duplicate holdings')
+          stock_total = next((row[2] for table in raw['tables'] for row in table if len(row)==3 and row[0]=='股票'),None)
+          if stock_total is None or not stock_total.endswith('%'):
+              raise ValueError('Official stock allocation missing')
+          allocation = float(stock_total.rstrip('%'))/100
+          total = sum(s['weight'] for s in stocks)
+          if abs(total-allocation) > len(stocks)*0.00005+0.0002:
+              raise ValueError('Holdings do not reconcile to official stock allocation')
+          latest = Path('data/00988a/latest.json')
+          if latest.exists() and json.loads(latest.read_text())['date'] > date:
+              raise ValueError('Source date regressed')
+          payload = dict(etf='00988A',date=date,source=SOURCE,stockCount=len(stocks),stockAllocation=allocation,holdings=stocks)
+          latest.parent.mkdir(parents=True,exist_ok=True)
+          encoded = json.dumps(payload,ensure_ascii=False,indent=2)+chr(10)
+          latest.write_text(encoded,encoding='utf-8')
+          Path('data/00988a/'+date+'.json').write_text(encoded,encoding='utf-8')
+          print('Official date:',date,'stocks:',len(stocks),'weight:',round(total*100,2))
+          PY
+      - name: Save verified snapshots
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Update official 00988A holdings'
+          git push
