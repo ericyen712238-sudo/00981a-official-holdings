@@ -1,12 +1,12 @@
 name: Update official 00988A holdings
 on:
   schedule:
-    - cron: '17 9 * * *'
+    - cron: '7 9 * * *'
   workflow_dispatch:
 permissions:
   contents: write
 concurrency:
-  group: official-00988a
+  group: official-00981a
   cancel-in-progress: false
 jobs:
   collect:
@@ -88,4 +88,5 @@ jobs:
           git add data/
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Update official 00988A holdings'
+          git pull --rebase
           git push
