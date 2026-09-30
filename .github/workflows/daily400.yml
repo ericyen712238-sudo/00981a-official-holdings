@@ -1,7 +1,6 @@
 name: Update official 00400A holdings
 on:
-  schedule:
-    - cron: '27 9 * * *'
+  # Scheduled collection paused: official site denies GitHub runner access.
   workflow_dispatch:
 permissions:
   contents: write
