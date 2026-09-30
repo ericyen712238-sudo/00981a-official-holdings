@@ -34,7 +34,13 @@ jobs:
               browser = p.chromium.launch()
               page = browser.new_page(locale='zh-TW')
               page.goto(SOURCE, wait_until='domcontentloaded', timeout=90000)
-              page.locator('#etf3 .bar_table_line .code').first.wait_for(timeout=60000)
+              page.get_by_role('heading',name='持股權重',exact=True).click()
+              try:
+                  page.locator('#etf3 .bar_table_line .code').first.wait_for(timeout=60000)
+              except Exception:
+                  print('Page URL:',page.url,'Title:',page.title())
+                  print(page.locator('body').inner_text()[:12000])
+                  raise
               page.locator('#etf3').get_by_text('查看全部',exact=True).click()
               page.locator('#etf3').get_by_text('全部收合',exact=True).wait_for()
               raw = page.locator('#etf3').evaluate("""el => ({text:el.innerText,stocks:[...el.querySelectorAll('.bar_table_line')].filter(r=>/^[0-9]{4}$/.test(r.querySelector('.code')?.textContent.trim())).map(r=>({code:r.querySelector('.code').textContent.trim(),name:r.querySelector('.name').textContent.trim(),values:[...r.querySelectorAll('.other_value>span:not(.values_name)')].map(x=>x.textContent.trim())}))})""")
