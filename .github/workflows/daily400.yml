@@ -34,8 +34,8 @@ jobs:
               browser = p.chromium.launch()
               page = browser.new_page(locale='zh-TW')
               page.goto(SOURCE, wait_until='domcontentloaded', timeout=90000)
-              page.get_by_role('heading',name='持股權重',exact=True).click()
               try:
+                  page.get_by_role('heading',name='持股權重',exact=True).click()
                   page.locator('#etf3 .bar_table_line .code').first.wait_for(timeout=60000)
               except Exception:
                   print('Page URL:',page.url,'Title:',page.title())
