@@ -1,0 +1,84 @@
+name: Update official 00400A holdings
+on:
+  schedule:
+    - cron: '27 9 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: official-00981a
+  cancel-in-progress: false
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install browser
+        run: |
+          pip install playwright==1.55.0
+          python -m playwright install --with-deps chromium
+      - name: Read official portfolio
+        run: |
+          python - <<'PY'
+          import json, re, math
+          from pathlib import Path
+          from datetime import datetime, timezone, timedelta
+          from playwright.sync_api import sync_playwright
+          SOURCE = 'https://www.cathaysite.com.tw/ETF/detail/EEA?tab=etf3'
+          TZ = timezone(timedelta(hours=8))
+          with sync_playwright() as p:
+              browser = p.chromium.launch()
+              page = browser.new_page(locale='zh-TW')
+              page.goto(SOURCE, wait_until='domcontentloaded', timeout=90000)
+              page.locator('#etf3 .bar_table_line .code').first.wait_for(timeout=60000)
+              page.locator('#etf3').get_by_text('查看全部',exact=True).click()
+              page.locator('#etf3').get_by_text('全部收合',exact=True).wait_for()
+              raw = page.locator('#etf3').evaluate("""el => ({text:el.innerText,stocks:[...el.querySelectorAll('.bar_table_line')].filter(r=>/^[0-9]{4}$/.test(r.querySelector('.code')?.textContent.trim())).map(r=>({code:r.querySelector('.code').textContent.trim(),name:r.querySelector('.name').textContent.trim(),values:[...r.querySelectorAll('.other_value>span:not(.values_name)')].map(x=>x.textContent.trim())}))})""")
+              source_date = page.locator('#etf3 input[name="dp"]').input_value()
+              browser.close()
+          date = datetime.strptime(source_date,'%Y-%m-%d').strftime('%Y-%m-%d')
+          if date > datetime.now(TZ).strftime('%Y-%m-%d'):
+              raise ValueError('Future source date')
+          stocks = []
+          for row in raw['stocks']:
+              if len(row['values']) != 2:
+                  raise ValueError('Invalid stock row')
+              code,name = row['code'],row['name']
+              shares = int(row['values'][0].replace(',',''))
+              weight = float(row['values'][1].rstrip('%'))/100
+              if shares <= 0 or not name or not math.isfinite(weight) or not 0 <= weight <= 1:
+                  raise ValueError('Invalid holding')
+              stocks.append(dict(code=code,name=name,shares=shares,weight=weight))
+          if not 20 <= len(stocks) <= 300 or len({s['code'] for s in stocks}) != len(stocks):
+              raise ValueError('Incomplete or duplicate holdings')
+          nav_match = re.search(r'基金資產總淨值[^0-9]*([0-9,]+)',raw['text'])
+          asset_match = re.search(r'股票[^0-9]*([0-9,]+)',raw['text'])
+          if not nav_match or not asset_match:
+              raise ValueError('Official allocation missing')
+          allocation = int(asset_match.group(1).replace(',','')) / int(nav_match.group(1).replace(',',''))
+          total = sum(s['weight'] for s in stocks)
+          if abs(total-allocation) > len(stocks)*0.00005+0.0002:
+              raise ValueError('Holdings do not reconcile to official stock assets')
+          latest = Path('data/00400a/latest.json')
+          if latest.exists() and json.loads(latest.read_text())['date'] > date:
+              raise ValueError('Source date regressed')
+          payload = dict(etf='00400A',date=date,source=SOURCE,stockCount=len(stocks),stockAllocation=allocation,holdings=stocks)
+          latest.parent.mkdir(parents=True,exist_ok=True)
+          encoded = json.dumps(payload,ensure_ascii=False,indent=2)+chr(10)
+          latest.write_text(encoded,encoding='utf-8')
+          Path('data/00400a/'+date+'.json').write_text(encoded,encoding='utf-8')
+          print('Official date:',date,'stocks:',len(stocks),'weight:',round(total*100,2))
+          PY
+      - name: Save verified snapshots
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/00400a/
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Update official 00400A holdings'
+          git pull --rebase
+          git push
