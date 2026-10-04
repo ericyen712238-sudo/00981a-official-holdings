@@ -16,6 +16,45 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Probe Cathay cwapi from GitHub runner
+        run: |
+          python - <<'PY'
+          from urllib.request import Request, urlopen
+          from urllib.error import HTTPError, URLError
+
+          DATE = '2026-09-22'
+          BASE = 'https://cwapi.cathaysite.com.tw/api/ETF/'
+          ENDPOINTS = [
+              'GetETFDetailStockList',
+              'GetETFDetailFutureList',
+              'GetETFOptionList',
+          ]
+
+          for endpoint in ENDPOINTS:
+              url = f'{BASE}{endpoint}?FundCode=EA&SearchDate={DATE}&status=1'
+              req = Request(
+                  url,
+                  headers={
+                      'Accept': 'application/json, text/plain, */*',
+                      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/154 Safari/537.36',
+                      'Referer': 'https://www.cathaysite.com.tw/',
+                      'Origin': 'https://www.cathaysite.com.tw',
+                  },
+              )
+              print(f'===== {endpoint} =====')
+              try:
+                  with urlopen(req, timeout=30) as r:
+                      body = r.read(1500).decode('utf-8', 'replace')
+                      print('STATUS =', r.status)
+                      print(body)
+              except HTTPError as e:
+                  body = e.read(1500).decode('utf-8', 'replace')
+                  print('STATUS =', e.code)
+                  print(body)
+              except URLError as e:
+                  print('URL ERROR =', e)
+              print()
+          PY
       - name: Install browser
         run: |
           pip install playwright==1.55.0
