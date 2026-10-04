@@ -1,128 +1,419 @@
 name: Update official 00400A holdings
+
 on:
-  # Scheduled collection paused: official site denies GitHub runner access.
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "Run mode"
+        required: true
+        default: "latest"
+        type: choice
+        options:
+          - latest
+          - backfill
+      start_date:
+        description: "Backfill start date (YYYY-MM-DD)"
+        required: false
+        default: "2026-04-09"
+
+  schedule:
+    # Weekdays 18:30 Asia/Taipei = 10:30 UTC
+    - cron: "30 10 * * 1-5"
+
 permissions:
   contents: write
+
 concurrency:
-  group: official-00981a
+  group: official-00400a
   cancel-in-progress: false
+
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-      - name: Probe Cathay cwapi from GitHub runner
+          python-version: "3.12"
+
+      - name: Fetch official 00400A data
+        env:
+          RUN_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'latest' }}
+          START_DATE: ${{ github.event_name == 'workflow_dispatch' && inputs.start_date || '2026-04-09' }}
         run: |
           python - <<'PY'
-          from urllib.request import Request, urlopen
+          import json
+          import math
+         import os
+          import time
+          from datetime import date, datetime, timedelta
+          from pathlib import Path
           from urllib.error import HTTPError, URLError
+          from urllib.parse import urlencode
+          from urllib.request import Request, urlopen
 
-          DATE = '2026-09-22'
-          BASE = 'https://cwapi.cathaysite.com.tw/api/ETF/'
-          ENDPOINTS = [
-              'GetETFDetailStockList',
-              'GetETFDetailFutureList',
-              'GetETFOptionList',
-          ]
+          FUND_CODE = "EA"
+          ETF_CODE = "00400A"
+          BASE = "https://cwapi.cathaysite.com.tw/api/ETF/"
+          SOURCE = "https://www.cathaysite.com.tw/ETF/detail/EEA?tab=etf3"
 
-          for endpoint in ENDPOINTS:
-              url = f'{BASE}{endpoint}?FundCode=EA&SearchDate={DATE}&status=1'
-              req = Request(
-                  url,
-                  headers={
-                      'Accept': 'application/json, text/plain, */*',
-                      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/154 Safari/537.36',
-                      'Referer': 'https://www.cathaysite.com.tw/',
-                      'Origin': 'https://www.cathaysite.com.tw',
-                  },
-              )
-              print(f'===== {endpoint} =====')
+          RUN_MODE = os.environ.get("RUN_MODE", "latest")
+          START_DATE = os.environ.get("START_DATE", "2026-04-09")
+
+          OUT_DIR = Path("data/00400a")
+          OUT_DIR.mkdir(parents=True, exist_ok=True)
+
+          HEADERS = {
+              "Accept": "application/json, text/plain, */*",
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                            "AppleWebKit/537.36 Chrome/154 Safari/537.36",
+              "Referer": "https://www.cathaysite.com.tw/",
+              "Origin": "https://www.cathaysite.com.tw",
+          }
+
+          def api(endpoint, d):
+              qs = urlencode({
+                  "FundCode": FUND_CODE,
+                  "SearchDate": d,
+                  "status": 1,
+              })
+              url = f"{BASE}{endpoint}?{qs}"
+              req = Request(url, headers=HEADERS)
+
               try:
                   with urlopen(req, timeout=30) as r:
-                      body = r.read(1500).decode('utf-8', 'replace')
-                      print('STATUS =', r.status)
-                      print(body)
+                      raw = r.read().decode("utf-8")
               except HTTPError as e:
-                  body = e.read(1500).decode('utf-8', 'replace')
-                  print('STATUS =', e.code)
-                  print(body)
+                  body = e.read(1000).decode("utf-8", "replace")
+                  raise RuntimeError(f"{endpoint} HTTP {e.code} {d}: {body[:500]}")
               except URLError as e:
-                  print('URL ERROR =', e)
-              print()
-          PY
-      - name: Install browser
-        run: |
-          pip install playwright==1.55.0
-          python -m playwright install --with-deps chromium
-      - name: Read official portfolio
-        run: |
-          python - <<'PY'
-          import json, re, math
-          from pathlib import Path
-          from datetime import datetime, timezone, timedelta
-          from playwright.sync_api import sync_playwright
-          SOURCE = 'https://www.cathaysite.com.tw/ETF/detail/EEA?tab=etf3'
-          TZ = timezone(timedelta(hours=8))
-          with sync_playwright() as p:
-              browser = p.chromium.launch()
-              page = browser.new_page(locale='zh-TW')
-              page.goto(SOURCE, wait_until='domcontentloaded', timeout=90000)
+                  raise RuntimeError(f"{endpoint} URL error {d}: {e}")
+
+              obj = json.loads(raw)
+
+              if not obj.get("success") or str(obj.get("returnCode")) != "2000":
+                  raise RuntimeError(
+                      f"{endpoint} API failed {d}: {json.dumps(obj, ensure_ascii=False)[:1000]}"
+                  )
+
+              result = obj.get("result")
+              return result if isinstance(result, list) else []
+
+          def clean(v):
+              if v is None:
+                  return ""
+              return " ".join(str(v).split())
+
+          def number(v):
+              if v in (None, ""):
+                  return 0
+              s = str(v).replace(",", "").strip()
               try:
-                  page.get_by_role('heading',name='持股權重',exact=True).click()
-                  page.locator('#etf3 .bar_table_line .code').first.wait_for(timeout=60000)
-              except Exception:
-                  print('Page URL:',page.url,'Title:',page.title())
-                  print(page.locator('body').inner_text()[:12000])
-                  raise
-              page.locator('#etf3').get_by_text('查看全部',exact=True).click()
-              page.locator('#etf3').get_by_text('全部收合',exact=True).wait_for()
-              raw = page.locator('#etf3').evaluate("""el => ({text:el.innerText,stocks:[...el.querySelectorAll('.bar_table_line')].filter(r=>/^[0-9]{4}$/.test(r.querySelector('.code')?.textContent.trim())).map(r=>({code:r.querySelector('.code').textContent.trim(),name:r.querySelector('.name').textContent.trim(),values:[...r.querySelectorAll('.other_value>span:not(.values_name)')].map(x=>x.textContent.trim())}))})""")
-              source_date = page.locator('#etf3 input[name="dp"]').input_value()
-              browser.close()
-          date = datetime.strptime(source_date,'%Y-%m-%d').strftime('%Y-%m-%d')
-          if date > datetime.now(TZ).strftime('%Y-%m-%d'):
-              raise ValueError('Future source date')
-          stocks = []
-          for row in raw['stocks']:
-              if len(row['values']) != 2:
-                  raise ValueError('Invalid stock row')
-              code,name = row['code'],row['name']
-              shares = int(row['values'][0].replace(',',''))
-              weight = float(row['values'][1].rstrip('%'))/100
-              if shares <= 0 or not name or not math.isfinite(weight) or not 0 <= weight <= 1:
-                  raise ValueError('Invalid holding')
-              stocks.append(dict(code=code,name=name,shares=shares,weight=weight))
-          if not 20 <= len(stocks) <= 300 or len({s['code'] for s in stocks}) != len(stocks):
-              raise ValueError('Incomplete or duplicate holdings')
-          nav_match = re.search(r'基金資產總淨值[^0-9]*([0-9,]+)',raw['text'])
-          asset_match = re.search(r'股票[^0-9]*([0-9,]+)',raw['text'])
-          if not nav_match or not asset_match:
-              raise ValueError('Official allocation missing')
-          allocation = int(asset_match.group(1).replace(',','')) / int(nav_match.group(1).replace(',',''))
-          total = sum(s['weight'] for s in stocks)
-          if abs(total-allocation) > len(stocks)*0.00005+0.0002:
-              raise ValueError('Holdings do not reconcile to official stock assets')
-          latest = Path('data/00400a/latest.json')
-          if latest.exists() and json.loads(latest.read_text())['date'] > date:
-              raise ValueError('Source date regressed')
-          payload = dict(etf='00400A',date=date,source=SOURCE,stockCount=len(stocks),stockAllocation=allocation,holdings=stocks)
-          latest.parent.mkdir(parents=True,exist_ok=True)
-          encoded = json.dumps(payload,ensure_ascii=False,indent=2)+chr(10)
-          latest.write_text(encoded,encoding='utf-8')
-          Path('data/00400a/'+date+'.json').write_text(encoded,encoding='utf-8')
-          print('Official date:',date,'stocks:',len(stocks),'weight:',round(total*100,2))
+                  n = float(s)
+              except ValueError:
+                  return 0
+              return int(n) if n.is_integer() else n
+
+          def weight(v):
+              if v in (None, ""):
+                  return 0.0
+              s = str(v).strip()
+              if s.endswith("%"):
+                  s = s[:-1]
+              n = float(s) / 100.0
+              if not math.isfinite(n) or n < -3 or n > 3:
+                  raise ValueError(f"Invalid weight: {v}")
+              return n
+
+          def fetch_day(d):
+              stocks_raw = api("GetETFDetailStockList", d)
+
+              # No stock rows => holiday / no published data for that date.
+              if not stocks_raw:
+                  return None
+
+              futures_raw = api("GetETFDetailFutureList", d)
+              options_raw = api("GetETFOptionList", d)
+
+              stocks = []
+              seen_stocks = set()
+
+              for x in stocks_raw:
+                  code = clean(x.get("stockCode"))
+                  name = clean(x.get("stockName"))
+                  shares = number(x.get("volumn"))
+                  w = weight(x.get("weights"))
+
+                  if not (len(code) == 4 and code.isdigit()):
+                      raise ValueError(f"Invalid stock code {d}: {code}")
+                  if code in seen_stocks:
+                      raise ValueError(f"Duplicate stock {d}: {code}")
+                  if not name or shares <= 0 or w < 0 or w > 1:
+                      raise ValueError(f"Invalid stock row {d}: {x}")
+
+                  seen_stocks.add(code)
+                  stocks.append({
+                      "type": "股票",
+                      "code": code,
+                      "name": name,
+                      "shares": shares,
+                      "weight": w,
+                  })
+
+              futures = []
+              for idx, x in enumerate(futures_raw):
+                  root = clean(
+                      x.get("future_No")
+                      or x.get("futureNo")
+                      or x.get("futures_No")
+                      or x.get("fT_No")
+                      or x.get("futureCode")
+                      or x.get("code")
+                      or "FUT"
+                  )
+                  month_raw = clean(
+                      x.get("future_Date")
+                      or x.get("futureDate")
+                      or x.get("futures_Date")
+                      or x.get("fT_Date")
+                      or x.get("contractMonth")
+                      or x.get("month")
+                      or ""
+                  )
+                  month = "".join(ch for ch in month_raw if ch.isdigit())
+
+                  name = clean(
+                      x.get("fT_Name")
+                      or x.get("future_Name")
+                      or x.get("futureName")
+                      or x.get("name")
+                      or root
+                  )
+                  qty = number(
+                      x.get("volumn")
+                      if x.get("volumn") is not None else
+                      x.get("volume")
+                      if x.get("volume") is not None else
+                      x.get("qty")
+                      if x.get("qty") is not None else
+                      x.get("quantity")
+                      if x.get("quantity") is not None else
+                      x.get("position")
+                      if x.get("position") is not None else
+                      x.get("contracts")
+                      if x.get("contracts") is not None else 0
+                  )
+                  w = weight(
+                      x.get("weight")
+                      if x.get("weight") is not None else
+                      x.get("weights")
+                      if x.get("weights") is not None else
+                      x.get("ratio")
+                      if x.get("ratio") is not None else 0
+                  )
+
+                  code = "-".join(v for v in [root, month] if v) or f"FUT-{idx}"
+
+                  futures.append({
+                      "type": "期貨",
+                      "code": code,
+                      "name": " ".join(v for v in [name, month_raw] if v),
+                      "shares": qty,
+                      "weight": w,
+                  })
+
+              options = []
+              for idx, x in enumerate(options_raw):
+                  root = clean(
+                      x.get("option_No")
+                      or x.get("optionNo")
+                      or x.get("optionCode")
+                      or x.get("code")
+                      or "TXO"
+                  )
+                  month_raw = clean(
+                      x.get("option_Date")
+                      or x.get("optionDate")
+                      or x.get("contractMonth")
+                      or x.get("month")
+                      or ""
+                  )
+                  month = "".join(ch for ch in month_raw if ch.isdigit())
+
+                  cp = clean(
+                      x.get("callPut")
+                      or x.get("call_Put")
+                      or x.get("cp")
+                      or x.get("type")
+                      or ""
+                  ).upper()
+
+                  if cp == "CALL":
+                      cp = "C"
+                  elif cp == "PUT":
+                      cp = "P"
+
+                  strike = number(
+                      x.get("strike_Price")
+                      if x.get("strike_Price") is not None else
+                      x.get("strikePrice")
+                      if x.get("strikePrice") is not None else
+                      x.get("strike")
+                      if x.get("strike") is not None else 0
+                  )
+
+                  qty = number(
+                      x.get("volumn")
+                      if x.get("volumn") is not None else
+                      x.get("volume")
+                      if x.get("volume") is not None else
+                      x.get("qty")
+                      if x.get("qty") is not None else
+                      x.get("quantity")
+                      if x.get("quantity") is not None else 0
+                  )
+
+                  w = weight(
+                      x.get("weight")
+                      if x.get("weight") is not None else
+                      x.get("weights")
+                      if x.get("weights") is not None else
+                      x.get("ratio")
+                      if x.get("ratio") is not None else 0
+                  )
+
+                  code_parts = [root, month, cp]
+                  if strike not in (0, "", None):
+                      code_parts.append(str(strike))
+                  code = "-".join(v for v in code_parts if v) or f"OPT-{idx}"
+
+                  raw_name = clean(
+                      x.get("fT_Name")
+                      or x.get("option_Name")
+                      or x.get("optionName")
+                      or x.get("name")
+                      or root
+                  )
+
+                  options.append({
+                      "type": "選擇權",
+                      "code": code,
+                      "name": " ".join(
+                          str(v) for v in [raw_name, month_raw, cp, strike]
+                          if v not in ("", 0, None)
+                      ),
+                      "shares": qty,
+                      # Keep official API sign exactly as returned.
+                      "weight": w,
+                  })
+
+              positions = sorted(
+                  stocks + futures + options,
+                  key=lambda x: (-x["weight"], x["code"])
+              )
+
+              return {
+                  "etf": ETF_CODE,
+                  "date": d,
+                  "source": SOURCE,
+                  "apiSource": BASE,
+                  "stockCount": len(stocks),
+                  "futureCount": len(futures),
+                  "optionCount": len(options),
+                  "stockAllocation": sum(x["weight"] for x in stocks),
+                  "futureAllocation": sum(x["weight"] for x in futures),
+                  "optionAllocation": sum(x["weight"] for x in options),
+                  "holdings": stocks,
+                  "futures": futures,
+                  "options": options,
+                  "positions": positions,
+              }
+
+          def write_payload(payload):
+              encoded = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
+              d = payload["date"]
+              (OUT_DIR / f"{d}.json").write_text(encoded, encoding="utf-8")
+              (OUT_DIR / "latest.json").write_text(encoded, encoding="utf-8")
+              print(
+                  d,
+                  "stocks=", payload["stockCount"],
+                  "futures=", payload["futureCount"],
+                  "options=", payload["optionCount"],
+                  "positions=", len(payload["positions"]),
+              )
+
+          def latest_mode():
+              d = date.today()
+              for _ in range(12):
+                  ds = d.isoformat()
+                  if d.weekday() < 5:
+                      payload = fetch_day(ds)
+                      if payload:
+                          write_payload(payload)
+                          return
+                  d -= timedelta(days=1)
+                  time.sleep(0.15)
+              raise RuntimeError("No official 00400A data found in last 12 days")
+
+          def backfill_mode():
+              start = datetime.strptime(START_DATE, "%Y-%m-%d").date()
+              end = date.today()
+
+              current = start
+              latest_payload = None
+              written = 0
+
+              while current <= end:
+                  if current.weekday() < 5:
+                      ds = current.isoformat()
+                      payload = fetch_day(ds)
+
+                      if payload:
+                          encoded = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
+                          (OUT_DIR / f"{ds}.json").write_text(encoded, encoding="utf-8")
+                          latest_payload = payload
+                          written += 1
+                          print(
+                              "saved",
+                              ds,
+                              "stocks=", payload["stockCount"],
+                              "futures=", payload["futureCount"],
+                              "options=", payload["optionCount"],
+                          )
+
+                      time.sleep(0.20)
+
+                  current += timedelta(days=1)
+
+              if not latest_payload:
+                  raise RuntimeError("Backfill produced no data")
+
+              latest_encoded = json.dumps(
+                  latest_payload,
+                  ensure_ascii=False,
+                  indent=2
+              ) + "\n"
+              (OUT_DIR / "latest.json").write_text(latest_encoded, encoding="utf-8")
+              print("Backfill complete:", written, "dates; latest =", latest_payload["date"])
+
+          if RUN_MODE == "backfill":
+              backfill_mode()
+          else:
+              latest_mode()
           PY
+
       - name: Save verified snapshots
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add data/00400a/
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'Update official 00400A holdings'
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "Update official 00400A holdings"
           git pull --rebase
           git push
