@@ -94,6 +94,12 @@ jobs:
 
               obj = json.loads(raw)
 
+              # Cathay returnCode 4005 = 查無資料.
+              # Treat it as an empty result (holiday / no position), not as a fatal error.
+              if str(obj.get("returnCode")) == "4005":
+                  print(f"skip {d} {endpoint}: no data")
+                  return []
+
               if not obj.get("success") or str(obj.get("returnCode")) != "2000":
                   raise RuntimeError(
                       f"{endpoint} API failed {d}: {json.dumps(obj, ensure_ascii=False)[:1000]}"
