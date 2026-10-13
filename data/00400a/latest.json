@@ -5,10 +5,10 @@
   "apiSource": "https://cwapi.cathaysite.com.tw/api/ETF/",
   "stockCount": 51,
   "futureCount": 0,
-  "optionCount": 0,
+  "optionCount": 2,
   "stockAllocation": 0.9282,
   "futureAllocation": 0,
-  "optionAllocation": 0,
+  "optionAllocation": 0.0037,
   "holdings": [
     {
       "type": "股票",
@@ -369,7 +369,22 @@
     }
   ],
   "futures": [],
-  "options": [],
+  "options": [
+    {
+      "type": "選擇權",
+      "code": "TXO-202610-C-48000",
+      "name": "台指選擇權 2026/10 C 48000",
+      "shares": -71,
+      "weight": 0.0033
+    },
+    {
+      "type": "選擇權",
+      "code": "TXO-202610-C-50000",
+      "name": "台指選擇權 2026/10 C 50000",
+      "shares": -25,
+      "weight": 0.0004
+    }
+  ],
   "positions": [
     {
       "type": "股票",
@@ -687,6 +702,13 @@
       "weight": 0.0033
     },
     {
+      "type": "選擇權",
+      "code": "TXO-202610-C-48000",
+      "name": "台指選擇權 2026/10 C 48000",
+      "shares": -71,
+      "weight": 0.0033
+    },
+    {
       "type": "股票",
       "code": "6271",
       "name": "同欣電",
@@ -727,6 +749,13 @@
       "name": "宏全",
       "shares": 180000,
       "weight": 0.0007000000000000001
+    },
+    {
+      "type": "選擇權",
+      "code": "TXO-202610-C-50000",
+      "name": "台指選擇權 2026/10 C 50000",
+      "shares": -25,
+      "weight": 0.0004
     }
   ]
 }
