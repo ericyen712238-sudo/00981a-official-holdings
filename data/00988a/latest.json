@@ -1,147 +1,147 @@
 {
   "etf": "00988A",
-  "date": "2026-10-19",
+  "date": "2026-10-20",
   "source": "https://www.ezmoney.com.tw/ETF/Fund/Info?fundCode=61YTW&tabName=basic#asset",
-  "stockCount": 39,
-  "stockAllocation": 0.9632999999999999,
+  "stockCount": 40,
+  "stockAllocation": 0.9499,
   "holdings": [
     {
       "code": "BE US",
       "name": "BLOOM ENERGY CORP- A",
       "shares": 420000,
-      "weight": 0.0666
+      "weight": 0.0664
     },
     {
       "code": "3037",
       "name": "欣興",
       "shares": 2600000,
-      "weight": 0.06269999999999999
+      "weight": 0.059699999999999996
     },
     {
       "code": "SPCX US",
       "name": "SPACE EXPLORATION TECHN-CL A",
       "shares": 550000,
-      "weight": 0.057
+      "weight": 0.057699999999999994
     },
     {
       "code": "LITE US",
       "name": "LUMENTUM HOLDINGS INC",
-      "shares": 92000,
-      "weight": 0.0538
+      "shares": 82000,
+      "weight": 0.0479
     },
     {
       "code": "NVDA US",
       "name": "NVIDIA CORP(輝達公司)",
       "shares": 290000,
-      "weight": 0.0441
+      "weight": 0.0446
     },
     {
       "code": "3017",
       "name": "奇鋐",
       "shares": 600000,
-      "weight": 0.0429
+      "weight": 0.0434
     },
     {
       "code": "PLTR US",
       "name": "PALANTIR TECHNOLOGIES INC-A",
       "shares": 310000,
-      "weight": 0.042199999999999994
+      "weight": 0.0424
     },
     {
       "code": "PANW US",
       "name": "PALO ALTO NETWORKS INC",
       "shares": 165000,
-      "weight": 0.0401
+      "weight": 0.039900000000000005
+    },
+    {
+      "code": "AAPL US",
+      "name": "APPLE INC(蘋果公司)",
+      "shares": 125000,
+      "weight": 0.0301
     },
     {
       "code": "CRWD US",
       "name": "CROWDSTRIKE HOLDINGS INC - A",
       "shares": 185754,
-      "weight": 0.0297
+      "weight": 0.03
     },
     {
       "code": "MSFT US",
       "name": "MICROSOFT CORP(微軟公司)",
       "shares": 78000,
-      "weight": 0.0292
+      "weight": 0.029500000000000002
     },
     {
       "code": "AMD US",
       "name": "ADVANCED MICRO DEVICES.amd us(超微半導體公司)",
       "shares": 76000,
-      "weight": 0.0286
-    },
-    {
-      "code": "2383",
-      "name": "台光電",
-      "shares": 250000,
-      "weight": 0.0276
-    },
-    {
-      "code": "HOOD US",
-      "name": "ROBINHOOD MARKETS INC - A",
-      "shares": 400120,
-      "weight": 0.0271
+      "weight": 0.028900000000000002
     },
     {
       "code": "OKTA US",
       "name": "OKTA INC",
       "shares": 200000,
-      "weight": 0.026600000000000002
+      "weight": 0.0276
+    },
+    {
+      "code": "2383",
+      "name": "台光電",
+      "shares": 250000,
+      "weight": 0.0269
     },
     {
       "code": "INTC US",
       "name": "INTEL CORP",
       "shares": 400000,
-      "weight": 0.0258
+      "weight": 0.026000000000000002
     },
     {
       "code": "MRVL US",
       "name": "MARVELL TECHNOLOGY INC",
       "shares": 150000,
-      "weight": 0.024900000000000002
+      "weight": 0.0256
     },
     {
       "code": "009150 KS",
       "name": "Samsung Electro-Mechanics co(009150 ks)",
       "shares": 40000,
-      "weight": 0.0246
-    },
-    {
-      "code": "6787 JP",
-      "name": "MEIKO ELECTRONICS CO LTD",
-      "shares": 250000,
-      "weight": 0.0242
-    },
-    {
-      "code": "AAPL US",
-      "name": "APPLE INC(蘋果公司)",
-      "shares": 100000,
-      "weight": 0.024
+      "weight": 0.024700000000000003
     },
     {
       "code": "NOW US",
       "name": "SERVICENOW INC",
       "shares": 230000,
-      "weight": 0.023399999999999997
+      "weight": 0.024399999999999998
     },
     {
       "code": "SNOW US",
       "name": "SNOWFLAKE INC-CLASS A(Snowflake公司)",
       "shares": 100000,
-      "weight": 0.022099999999999998
+      "weight": 0.0227
+    },
+    {
+      "code": "6787 JP",
+      "name": "MEIKO ELECTRONICS CO LTD",
+      "shares": 250000,
+      "weight": 0.0227
     },
     {
       "code": "TWLO US",
       "name": "TWILIO INC - A",
       "shares": 120000,
-      "weight": 0.0216
+      "weight": 0.022000000000000002
+    },
+    {
+      "code": "HOOD US",
+      "name": "ROBINHOOD MARKETS INC - A",
+      "shares": 280000,
+      "weight": 0.0195
     },
     {
       "code": "NET US",
       "name": "CLOUDFLARE INC - CLASS A",
       "shares": 82000,
-      "weight": 0.0171
+      "weight": 0.017
     },
     {
       "code": "2330",
@@ -153,7 +153,7 @@
       "code": "6981 JP",
       "name": "MURATA MANUFACTURING CO LTD",
       "shares": 500000,
-      "weight": 0.0151
+      "weight": 0.0149
     },
     {
       "code": "2454",
@@ -165,19 +165,7 @@
       "code": "1303",
       "name": "南亞",
       "shares": 2250000,
-      "weight": 0.0147
-    },
-    {
-      "code": "6223",
-      "name": "旺矽",
-      "shares": 110000,
-      "weight": 0.0124
-    },
-    {
-      "code": "META US",
-      "name": "META PLATFORMS INC(Meta平台公司)",
-      "shares": 25000,
-      "weight": 0.0124
+      "weight": 0.014499999999999999
     },
     {
       "code": "IFX GY",
@@ -186,34 +174,34 @@
       "weight": 0.0124
     },
     {
-      "code": "5801 JP",
-      "name": "FURUKAWA ELECTRIC CO LTD",
-      "shares": 800000,
-      "weight": 0.0118
+      "code": "META US",
+      "name": "META PLATFORMS INC(Meta平台公司)",
+      "shares": 25000,
+      "weight": 0.0123
+    },
+    {
+      "code": "6223",
+      "name": "旺矽",
+      "shares": 110000,
+      "weight": 0.011699999999999999
     },
     {
       "code": "MU US",
       "name": "MICRON TECHNOLOGY INC",
       "shares": 16000,
-      "weight": 0.0101
-    },
-    {
-      "code": "992 HK",
-      "name": "LENOVO GROUP LTD",
-      "shares": 3656000,
-      "weight": 0.0092
+      "weight": 0.0102
     },
     {
       "code": "6762 JP",
       "name": "TDK CORP",
       "shares": 700000,
-      "weight": 0.009000000000000001
+      "weight": 0.0089
     },
     {
-      "code": "COIN US",
-      "name": "COINBASE GLOBAL INC -CLASS A",
-      "shares": 70000,
-      "weight": 0.0083
+      "code": "992 HK",
+      "name": "LENOVO GROUP LTD",
+      "shares": 3656000,
+      "weight": 0.0084
     },
     {
       "code": "3443",
@@ -231,13 +219,31 @@
       "code": "ZS US",
       "name": "ZSCALER INC",
       "shares": 50000,
-      "weight": 0.0074
+      "weight": 0.0076
     },
     {
       "code": "2308",
       "name": "台達電",
       "shares": 200000,
-      "weight": 0.0070999999999999995
+      "weight": 0.006999999999999999
+    },
+    {
+      "code": "5801 JP",
+      "name": "FURUKAWA ELECTRIC CO LTD",
+      "shares": 400000,
+      "weight": 0.005600000000000001
+    },
+    {
+      "code": "600183 CH",
+      "name": "Shengyi Technology Co Ltd-A.600183 ch",
+      "shares": 400000,
+      "weight": 0.005
+    },
+    {
+      "code": "COIN US",
+      "name": "COINBASE GLOBAL INC -CLASS A",
+      "shares": 35000,
+      "weight": 0.0042
     }
   ]
 }
